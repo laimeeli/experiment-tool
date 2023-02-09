@@ -1,40 +1,3 @@
-# coding: utf-8
-"""
-Turk Lister
-Michael Yoshitaka ERLEWINE, mitcho@mitcho.com, May 2013
-
-Takes an items file and produces a Turk items CSV file and a decode CSV file.
-
-See the documentation for information on the input format. (It is based
-on Gibson et al's Turkolizer, which in turn is based on Linger. However,
-these formats are not exactly identical.)
-
-This script is a clean-room rewrite of Gibson et al's Turkolizer, whose
-copyright and licensing terms are unclear.
-
-The MIT License (MIT)
-Copyright (c) 2013--2017 Michael Yoshitaka ERLEWINE and contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-"""
-
 from __future__ import print_function
 import re, atexit
 
@@ -44,7 +7,7 @@ def graceful_exit():
 	if system() == 'Windows':
 		raw_input('Press enter to close the window...')
 
-# add tab completion to raw_input, for those platforms that support it
+#Add tab completion to raw_input, for those platforms that support it
 try:
 	import readline
 	if 'libedit' in readline.__doc__:
@@ -59,16 +22,12 @@ def graceful_write_csv(filename, data, keys = False):
 
 	if keys is False:
 		keys = data[0].keys()
-		# be smarter about key sort?
 		keys.sort()
 
 	with open(filename, 'wb') as f:
-		# setting keys here fixes the order of columns
+		#Setting keys here fixes the order of columns
 		writer = csv.DictWriter(f, keys, extrasaction = 'ignore', quoting = csv.QUOTE_NONNUMERIC)
-
-		# use this cumbersome line instead of writeheader() for python 2.6 compat:
 		writer.writerow(dict(zip(keys, keys)))
-		# encode utf8 on writerow, thanks to Anoop Sarkar:
 		for row in data:
 			writer.writerow(dict((k, v.encode('utf8') if type(v) is unicode else v) for k, v in row.items()))
 
@@ -81,10 +40,9 @@ class Item(object):
 		self.section = section
 		self.number = int(number)
 		
-		# the condition name is an actual text label
+		#The condition name is an actual text label
 		self.condition_name = condition_name
-		# the condition attribute will be an integer. it will be set later.
-		# todo: maybe this should be created on init instead, somehow
+		#The condition attribute will be an integer. it will be set later.
 		self.condition = False
 
 		self.__fields = []
@@ -127,14 +85,14 @@ class Section(object):
 		self.__item_numbers = list(set([item.number for item in self.items]))
 		for num in self.__item_numbers:
 			item_set = [item for item in items if item.number == num]
-			# sort item set by condition name:
+			#Sort item set by condition name:
 			item_set.sort(key=lambda x: x.condition_name)
-			# pick out the condition names to add to the condition_sets:
+			#Pick out the condition names to add to the condition_sets:
 			conds = [item.condition_name for item in item_set]
 			if conds not in condition_sets:
 				condition_sets.append(conds)
 
-			# set the condition number attribute on each item in the set:
+			#Set the condition number attribute on each item in the set:
 			for i in range(len(conds)):
 				item_set[i].condition = i
 
@@ -157,7 +115,7 @@ class Section(object):
 	def item_set_count(self):
 		return len(self.__item_numbers)
 	
-	# returns a single item, given an item number and condition number (not condition name!)
+	#Return a single item, given an item number and condition number
 	def item(self, item_number, condition_number):
 		matches = [item for item in self.items
 			if item.number == item_number and item.condition == condition_number]
@@ -168,11 +126,10 @@ class Section(object):
 		return matches[0]
 	
 	def verify(self):
-		# numbers should start with 1 and increase sequentially
+		#Numbers should start with 1 and increase sequentially
 		item_count = len(self.__item_numbers)
 # 		print(self.__item_numbers)
 # 		for i in range(1, item_count + 1):
-# 			# todo: do something with this assertion
 # 			assert i in self.__item_numbers
 
 		condition_counts = set([str(len(conds)) for conds in self.condition_sets])
@@ -195,7 +152,7 @@ class Section(object):
  		
 		print()
 	
-	# offset is the list number, starting with 0 (though that doesn't actually matter much)
+	#Offset is the list number, starting with 0 (though that doesn't actually matter much)
 	def latin_square_list(self, offset):
 		return [self.item(n, (n + offset) % self.condition_count) for n in self.__item_numbers]
 
@@ -208,7 +165,7 @@ class Experiment(object):
 			section_items = [t for t in items if t.section == section]
 			self.__sections[section] = Section(section, section_items)
 
-		# filler settings:
+		#filler settings:
 		self.has_fillers = False
 		self.__filler_sections = []
 		self.between_fillers = 0
@@ -219,7 +176,7 @@ class Experiment(object):
 	
 	@property
 	def field_count_counts(self):
-		# return a list of tuples (field count, number of items with that count)
+		#Return a list of tuples (field count, number of items with that count)
 		field_counts = [len(i.fields()) for i in self.items]
 		count = field_counts.count
 		result = [(ct, count(ct)) for ct in set(field_counts)]
@@ -261,12 +218,11 @@ class Experiment(object):
 
 	@property
 	def list_number_multiplier(self):
-		# the list number multiplier is the least-common-multiple of the
-		# condition names across all sections.
+		#The list number multiplier is the least-common-multiple of the
+		#Condition names across all sections.
 		return lcm(self.condition_counts)
 	
 	def verify(self):
-		# todo: iterate better
 		for section_name in self.section_names:
 			self.section(section_name).verify()
 
@@ -319,9 +275,7 @@ class Experiment(object):
 			(self.filler_count - (self.target_count - 1) * self.between_fillers)
 			/ 2))
 	
-	# Without the shuffle option, items will not be randomized within their section's
-	# latin square lists. This option exists for unit testing, in order to construct
-	# deterministic tests.
+	#Without the shuffle option, items will not be randomized within their section's latin square lists. This option exists for unit testing, in order to construct deterministic tests.
 	def list(self, list_number, shuffle=True):
 		target_items = [item
 			for sec in self.section_names if sec not in self.filler_sections
@@ -335,14 +289,12 @@ class Experiment(object):
 			shuffle(target_items)
 			shuffle(filler_items)
 		
-		# Start with the target items
+		#Start with the target items
 		list = target_items[:]
 		
 		if self.has_fillers:
-			# In general, when placing fillers systematically, loop over targets and 
-			# find that target in the current list. Mutate relative to that index.
-
-			# First, place between_fillers fillers between the targets:
+			#In general, when placing fillers systematically, loop over targets and find that target in the current list. Mutate relative to that index.
+			#First, place between_fillers fillers between the targets:
 			if self.between_fillers > 0:
 				for i in range(len(target_items) - 1):
 					# place fillers after this target:
@@ -351,57 +303,56 @@ class Experiment(object):
 					for j in range(self.between_fillers):
 						list.insert(target_index + 1, filler_items.pop())
 
-			# Second, place edge_fillers fillers at the edges:
+			#Second, place edge_fillers fillers at the edges:
 			if self.edge_fillers > 0:
 				for j in range(self.edge_fillers):
 					list.insert(0, filler_items.pop())
 					list.insert(len(list), filler_items.pop())
 			
-			# Third, if there are remaining fillers, place them randomly
-			# print('Remaining fillers:',len(filler_items))
+			#Third, if there are remaining fillers, place them randomlyprint('Remaining fillers:',len(filler_items))
 			if len(filler_items) > 0:
 				bins = len(target_items) + 1
 				sample = multinomial(bins, len(filler_items))
-				# print(bins, len(filler_items), sample)
-				# sample[0] will be a special case:
+				#Print(bins, len(filler_items), sample)
+				#sample[0] will be a special case:
 				for j in range(sample[0]):
 					list.insert(0, filler_items.pop())
-				# for each other bin, find the corresponding target:
+				#For each other bin, find the corresponding target:
 				for i in range(len(target_items)):
-					# place fillers after this target:
+					#Place fillers after this target:
 					target_target = target_items[i]
 					target_index = list.index(target_target)
 					for j in range(sample[i + 1]):
 						list.insert(target_index + 1, filler_items.pop())
 
-			# no fillers should be left here:
+			#No fillers should be left here:
 			assert len(filler_items) == 0
 					
 		return list
 
-	# list is a list of items
-	# return fields in a list with (key, value) entries
+	#list is a list of items
+	#Return fields in a list with (key, value) entries
 	def fields_from_list(self, list):
 		fields = []
 
 		for i in range(len(list)):
 			item = list[i]
-			# the display order starts with 1:
+			#The display order starts with 1:
 			display_order = i + 1
 			item_fields = item.fields(self.field_count)
-			# add decode information:
+			#Add decode information:
 			fields = fields + [
 				('item_{0}_section'.format(display_order), item.section),
 				('item_{0}_number'.format(display_order), item.number),
 				('item_{0}_condition'.format(display_order), item.condition_name),
 			]
-			# add the fields:
+			#Add the fields:
 			fields = fields + [ ('field_{0}_{1}'.format(display_order, j + 1), item_fields[j])
 				for j in range(self.field_count) ]
 
 		return fields
 
-# placing pigeons into holes
+#Placing pigeons into holes
 def multinomial(holes, pigeons):
 	from random import randrange
 	sample = [randrange(holes) for i in range(pigeons)]
@@ -412,25 +363,25 @@ def graceful_read_items(filename):
 
 	items = []
 	
-	# header lines must have: ^# section number condition$
+	#Header lines must have: ^# section number condition$
 	header_pattern = re.compile(r'^#\s+(\S+)\s+(\d+)\s+(.*?)\s*$')
 	
 	current_item = False
 	for line in f.readlines():
 		line = unicode(line, 'utf8')
-		# strip off line endings:
+		#Strip off line endings:
 		line = line.rstrip(u'\r\n')
 		
 		matched = header_pattern.match(line)
 		
 		if matched is False and current_item is False:
-			# skip these lines. todo: print an error?
+			#Skip these lines. todo: print an error?
 			print('weird')
 			continue
 		
 		if matched:
 			section, number, condition_name = matched.groups()
-			# print(section, number, condition_name)
+			#Print(section, number, condition_name)
 			current_item = Item(section, number, condition_name)
 			items.append(current_item)
 		else:
@@ -475,15 +426,15 @@ def main(args):
 	experiment = Experiment(items)
 	experiment.verify()
 	
-	# PRINT EXPERIMENT REPORT
+	#Print experiment report
 	print('-' * 20)
 	for section_name in experiment.section_names:
 		experiment.section(section_name).report()
 	experiment.field_count_report()
 	print('-' * 20)
-	# END EXPERIMENT REPORT
+	#End experiment report
 
-	# SET FILLER SECTIONS AND GUIDANCE
+	#Set filler sections and guidance 
 	filler_sections_string = args[1] if len(args) > 1 else raw_input("Enter filler section names, separated by commas: ")
 	experiment.filler_sections = re.split(', *', filler_sections_string)
 
@@ -493,7 +444,7 @@ def main(args):
 		print('Each list will have {0.target_count} target items and {0.filler_count} filler items'
 			.format(experiment))
 		
-		# set between_fillers
+		#Set between_fillers
 		if experiment.target_count > 1 and experiment.max_between_fillers > 0:
 			experiment.between_fillers = get_in_range(
 				experiment.max_between_fillers,
@@ -503,7 +454,7 @@ def main(args):
 		if experiment.target_count > 1 and experiment.max_between_fillers == 0:
 			print("WARNING: There are not enough fillers. There will be target items presented one after another.")
 
-		# set edge_fillers
+		#set edge_fillers
 		if experiment.max_edge_fillers > 0:
 			experiment.edge_fillers = get_in_range(
 				experiment.max_edge_fillers,
@@ -512,9 +463,9 @@ def main(args):
 		else:
 			experiment.edge_fillers = 0
 	
-	# END FILLER SETTINGS
+	#End filler settings
 
-	# SET THE NUMBER OF LISTS
+	#Set the number of lists
 	lnm = experiment.list_number_multiplier
 	number_of_lists = args[4] if len(args) > 4 else raw_input("How many lists would you like to create (enter a multiple of {0}): ".format(lnm))
 	
@@ -531,9 +482,9 @@ def main(args):
 	if number_of_lists % lnm != 0:
 		number_of_lists = int(round(number_of_lists / lnm, 0) * lnm)
 		print("The multiple of {0}, {1}, will be used instead.".format(lnm, number_of_lists))
-	# END THE NUMBER OF LISTS
+	#End the number of lists
 
-	# ASK ABOUT REVERSE LISTS
+	#Ask about reverse lists 
 	reverse = False
 	want_reverse = args[5] if len(args) > 5 else raw_input("Would you like reverse lists? ([yes], no) ")
 	if want_reverse == '' or want_reverse[0].lower() == 'y':
@@ -544,7 +495,7 @@ def main(args):
 			.format(number_of_lists, number_of_lists * 2))
 	else:
 		print("Randomizing {0} lists...".format(number_of_lists))
-	# END REVERSE LISTS
+	#End reverse lists
 
 	name_part, extension = splitext(items_file)
 	data = []
@@ -560,7 +511,6 @@ def main(args):
 			entry = [('list', list_number)] + experiment.fields_from_list(list)
 			data.append(dict(entry))
 
-		# todo: make sure that all the lists generate the same keys
 		keys = [entry[0] for entry in entry]
 
 	graceful_write_csv(name_part + '.turk.csv', data, keys)
